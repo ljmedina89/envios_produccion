@@ -1,146 +1,151 @@
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8" />
-  <title>BELOURA • Ingreso de Envíos</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0f172a;color:#e2e8f0;margin:0}
-    .wrap{max-width:920px;margin:28px auto;padding:0 16px}
-    .card{background:#0b1220;border:1px solid #334155;border-radius:16px;padding:18px}
-    h1{margin:0 0 6px} .muted{color:#94a3b8}
-    .grid{display:grid;gap:12px} .grid-2{grid-template-columns:1fr} @media(min-width:760px){.grid-2{grid-template-columns:1fr 1fr}}
-    input,select,textarea{width:100%;padding:12px;border-radius:12px;border:1px solid #334155;background:#0b1220;color:#e2e8f0}
-    label{font-size:13px;color:#cbd5e1;margin-bottom:6px;display:block}
-    .btn{padding:12px;border:0;border-radius:12px;font-weight:700;cursor:pointer}
-    .primary{background:#2dd4bf;color:#0b1220}.secondary{background:#334155;color:#e2e8f0}
-    .alert{margin-top:12px;padding:12px;border-radius:12px}
-    .ok{background:#064e3b;color:#bbf7d0;border:1px solid #bbf7d033}.err{background:#7f1d1d;color:#fecaca;border:1px solid #fecaca33}
-    .row{margin-bottom:8px} .actions{display:grid;gap:10px}@media(min-width:760px){.actions{grid-template-columns:1fr 1fr}}
-    a.link{color:#a7f3d0;text-decoration:underline}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <h1>BELOURA • Ingreso de Envíos</h1>
-    <p class="muted"></p>
+<script>
+  // URL de tu WebApp (la misma que usas en el panel)
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxW8kOXtVj_cLrdt2GY1uyMmlYAN2vb1LZR9QAoJKEHSJAYYaN7a-COUujLS2JsNhc0zQ/exec";
 
-    <div class="card">
-      <form id="envioForm">
-        <h3>Remitente</h3>
-        <div class="grid grid-2">
-          <div class="row"><label>Nombre *</label><input name="remitente_nombre" required></div>
-          <div class="row"><label>Teléfono *</label><input name="remitente_telefono" required></div>
-          <div class="row" style="grid-column:1/-1;"><label>Dirección *</label><input name="remitente_direccion" required></div>
-        </div>
+  const form       = document.getElementById('envioForm');
+  const msg        = document.getElementById('msg');
+  const btnCrear   = document.getElementById('btnCrear');
+  const btnFactura = document.getElementById('btnFactura');
 
-        <h3 style="margin-top:12px">Destinatario</h3>
-        <div class="grid grid-2">
-          <div class="row"><label>Nombre *</label><input name="destinatario_nombre" required></div>
-          <div class="row"><label>Cédula *</label><input name="destinatario_cedula" required></div>
-          <div class="row" style="grid-column:1/-1;"><label>Dirección *</label><input name="destinatario_direccion" required></div>
-          <div class="row"><label>Teléfono *</label><input name="destinatario_telefono" required></div>
-        </div>
+  function show(text, ok=false){
+    msg.style.display = 'block';
+    msg.className = 'alert ' + (ok ? 'ok' : 'err');
+    msg.innerHTML = text;
+  }
 
-        <h3 style="margin-top:12px">Envío</h3>
-        <div class="grid grid-2">
-          <div class="row" style="grid-column:1/-1;"><label>Detalle *</label><input name="detalle_envio" required></div>
-          <div class="row"><label>Valor estimado (USD) *</label><input name="valor_estimado" required inputmode="decimal"></div>
-          <div class="row"><label>Peso (lb) *</label><input name="peso_lb" required value="8.00" inputmode="decimal"></div>
-          <div class="row">
-            <label>Estado inicial *</label>
-            <select name="estado_inicial">
-              <option>Recibido en Arlington</option>
-              <option>En tránsito a Miami</option>
-              <option>Recibido en Miami</option>
-              <option>En vuelo a Ecuador</option>
-              <option>En aduana (EC)</option>
-              <option>En ruta a ciudad destino</option>
-              <option>Entregado</option>
-            </select>
-          </div>
-          <div class="row" style="grid-column:1/-1;"><label>Observación (opcional)</label><textarea name="observacion" rows="3"></textarea></div>
-          <div class="row" style="grid-column:1/-1;display:flex;gap:8px;align-items:center">
-            <input type="checkbox" id="consolidado" name="consolidado" checked>
-            <label for="consolidado" style="margin:0">Ocultar nombres en rastreo público (consolidado)</label>
-          </div>
-        </div>
+  function collect(){
+    const fd = new FormData(form); 
+    const o = {};
+    fd.forEach((v,k)=>o[k]=String(v||'').trim());
+    o.consolidado = document.getElementById('consolidado').checked;
+    if (isNaN(Number(o.valor_estimado))) throw new Error('Valor estimado inválido');
+    if (isNaN(Number(o.peso_lb)))       throw new Error('Peso inválido');
+    return o;
+  }
 
-        <div id="msg" class="alert" style="display:none"></div>
+  const toQS = o => new URLSearchParams(o).toString();
 
-        <div class="actions" style="margin-top:10px">
-          <button class="btn primary" type="submit" id="btnCrear">Crear envío (Sheets + PDF)</button>
-          <button class="btn secondary" type="button" id="btnFactura">Generar factura (solo PDF)</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script>
-    // Pega tu URL /exec
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxW8kOXtVj_cLrdt2GY1uyMmlYAN2vb1LZR9QAoJKEHSJAYYaN7a-COUujLS2JsNhc0zQ/exec";
-
-    const form = document.getElementById('envioForm');
-    const msg  = document.getElementById('msg');
-    const btnCrear   = document.getElementById('btnCrear');
-    const btnFactura = document.getElementById('btnFactura');
-
-    function show(text, ok=false){
-      msg.style.display='block';
-      msg.className = 'alert ' + (ok ? 'ok' : 'err');
-      msg.innerHTML = text;
-    }
-
-    function collect(){
-      const fd = new FormData(form); const o = {};
-      fd.forEach((v,k)=>o[k]=String(v||'').trim());
-      o.consolidado = document.getElementById('consolidado').checked;
-      if (isNaN(Number(o.valor_estimado))) throw new Error('Valor estimado inválido');
-      if (isNaN(Number(o.peso_lb))) throw new Error('Peso inválido');
-      return o;
-    }
-
-    // JSONP helper
-    function jsonp(url, params={}){
-      return new Promise((resolve,reject)=>{
-        const cb = 'cb_' + Math.random().toString(36).slice(2);
-        const s = document.createElement('script');
-        params.callback = cb;
-        const qs = Object.entries(params)
-          .map(([k,v])=> k+'='+encodeURIComponent(typeof v==='string'?v:JSON.stringify(v)))
-          .join('&');
-        s.src = url + (url.includes('?')?'&':'?') + qs;
-        s.onerror = ()=>reject(new Error('JSONP error'));
-        window[cb] = (data)=>{ resolve(data); delete window[cb]; document.body.removeChild(s); };
-        document.body.appendChild(s);
-      });
-    }
-
-    form.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      try{
-        btnCrear.disabled = true;
-        show('Guardando…', true);
-        const payload = collect();
-        const data = await jsonp(APPS_SCRIPT_URL, { action:'create', payload: payload });
-        if(!data.ok) throw new Error(data.error || 'Error');
-        show(`✅ Envío creado. Código: <b>${data.code}</b> · <a class="link" href="${data.pdfUrl}" target="_blank">Abrir PDF</a>`, true);
-      }catch(err){ show('❌ '+err.message); }
-      finally{ btnCrear.disabled = false; }
+  async function apiPost(body={}){
+    const r = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: toQS(body)
     });
+    try {
+      return await r.json();
+    } catch(e) {
+      console.error(e);
+      return { ok:false, error:'bad_json' };
+    }
+  }
 
-    btnFactura.addEventListener('click', async ()=>{
-      try{
-        btnFactura.disabled = true;
-        show('Generando factura…', true);
-        const payload = collect();
-        const data = await jsonp(APPS_SCRIPT_URL, { action:'invoice', payload: payload });
-        if(!data.ok) throw new Error(data.error || 'No se pudo generar la factura');
-        show(`✅ Factura generada. Código: <b>${data.code}</b> · <a class="link" href="${data.pdfUrl}" target="_blank">Abrir PDF</a>`, true);
+  // ---- Crear envío (Sheets + PDF) ----
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    try{
+      btnCrear.disabled = true;
+      show('Guardando…', true);
+
+      const p = collect();
+
+      const body = {
+        path: 'api/envios/create',
+
+        // Remitente
+        remitente_nombre:    p.remitente_nombre,
+        remitente_telefono:  p.remitente_telefono,
+        remitente_direccion: p.remitente_direccion,
+
+        // Destinatario (mapeo a nombres que espera Apps Script)
+        dest_nombre:    p.destinatario_nombre,
+        dest_cedula:    p.destinatario_cedula,
+        dest_direccion: p.destinatario_direccion,
+        dest_telefono:  p.destinatario_telefono,
+
+        // Detalles del envío
+        detalle:        p.detalle_envio,
+        valor_estimado: p.valor_estimado,
+        peso_lb:        p.peso_lb,
+        observacion:    p.observacion || '',
+        consolidado:    p.consolidado ? 'Sí' : '',
+        estado_inicial: p.estado_inicial || ''
+        // Si algún día usas cliente_code, aquí se añade:
+        // cliente_code: 'BLR-XXXX'
+      };
+
+      const data = await apiPost(body);
+      console.log('RESPUESTA ENVÍO:', data);
+
+      if(!data.ok) throw new Error(data.error || 'Error al crear envío');
+
+      // 👇 OJO: ahora usamos data.codigo y data.pdfUrl (como devuelve tu Apps Script)
+      show(
+        `✅ Envío creado. Código: <b>${data.codigo}</b> · ` +
+        `<a class="link" href="${data.pdfUrl}" target="_blank">Abrir PDF</a>`,
+        true
+      );
+
+      // Abrir el PDF en nueva pestaña
+      if (data.pdfUrl) {
         window.open(data.pdfUrl, '_blank');
-      }catch(err){ show('❌ '+err.message); }
-      finally{ btnFactura.disabled = false; }
-    });
-  </script>
-</body>
-</html>
+      }
+    }catch(err){
+      console.error(err);
+      show('❌ '+err.message);
+    }finally{
+      btnCrear.disabled = false;
+    }
+  });
+
+  // ---- Generar factura (solo PDF) ----
+  // Por ahora, usamos el mismo endpoint: también guarda el envío en Sheets
+  // Si quisieras que NO guarde en Sheets, habría que crear otra ruta en Apps Script.
+  btnFactura.addEventListener('click', async ()=>{
+    try{
+      btnFactura.disabled = true;
+      show('Generando factura…', true);
+
+      const p = collect();
+
+      const body = {
+        path: 'api/envios/create',
+
+        remitente_nombre:    p.remitente_nombre,
+        remitente_telefono:  p.remitente_telefono,
+        remitente_direccion: p.remitente_direccion,
+
+        dest_nombre:    p.destinatario_nombre,
+        dest_cedula:    p.destinatario_cedula,
+        dest_direccion: p.destinatario_direccion,
+        dest_telefono:  p.destinatario_telefono,
+
+        detalle:        p.detalle_envio,
+        valor_estimado: p.valor_estimado,
+        peso_lb:        p.peso_lb,
+        observacion:    p.observacion || '',
+        consolidado:    p.consolidado ? 'Sí' : '',
+        estado_inicial: p.estado_inicial || ''
+      };
+
+      const data = await apiPost(body);
+      console.log('RESPUESTA FACTURA:', data);
+
+      if(!data.ok) throw new Error(data.error || 'No se pudo generar la factura');
+
+      show(
+        `✅ Factura generada y envío registrado. Código: <b>${data.codigo}</b> · ` +
+        `<a class="link" href="${data.pdfUrl}" target="_blank">Abrir PDF</a>`,
+        true
+      );
+
+      if (data.pdfUrl) {
+        window.open(data.pdfUrl, '_blank');
+      }
+    }catch(err){
+      console.error(err);
+      show('❌ '+err.message);
+    }finally{
+      btnFactura.disabled = false;
+    }
+  });
+</script>
